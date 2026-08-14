@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Literature review agent</title>
+<style>
+  :root {
+    --ink: #1c1b18;
+    --ink-soft: #57554d;
+    --paper: #ffffff;
+    --paper-dim: #f4f3ef;
+    --line: #ddd9cf;
+    --accent: #2b3a55;
+    --flag-bg: #fbf1de;
+    --flag-line: #c98a2c;
+    --flag-ink: #6b4c15;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper-dim);
+    color: var(--ink);
+    font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 24px 96px; }
+  h1 {
+    font-size: 28px;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+  .sub {
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    color: var(--ink-soft);
+    font-size: 14px;
+    margin: 0 0 32px;
+  }
+  form { display: flex; gap: 8px; margin-bottom: 8px; }
+  input[type=text] {
+    flex: 1;
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    font-size: 15px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--paper);
+    color: var(--ink);
+  }
+  input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button {
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    font-size: 15px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 6px;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .example { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 13px; color: var(--ink-soft); margin: 0 0 32px; }
+  .example button {
+    background: none; border: none; padding: 0; color: var(--accent);
+    text-decoration: underline; cursor: pointer; font-size: 13px;
+  }
+
+  #log {
+    display: none;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 16px 18px;
+    margin-bottom: 32px;
+    white-space: pre-wrap;
+  }
+
+  #report { display: none; }
+  #report h2 {
+    font-size: 15px;
+    font-weight: 400;
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+    margin: 36px 0 16px;
+  }
+  #summary { font-size: 16px; line-height: 1.7; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft); font-weight: 400; }
+
+  .contradiction {
+    background: var(--flag-bg);
+    border: 1px solid var(--flag-line);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    color: var(--flag-ink);
+  }
+  .contradiction .topic { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+
+  ol.bib { font-size: 13.5px; line-height: 1.9; padding-left: 20px; }
+  ol.bib a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Literature review agent</h1>
+  <p class="sub">Plans a search, reads the papers, and flags where they disagree.</p>
+
+  <form id="form">
+    <input type="text" id="question" placeholder="e.g. does chain-of-thought prompting improve reasoning accuracy in LLMs" required minlength="5">
+    <button type="submit" id="submit">Run</button>
+  </form>
+  <p class="example">Try: <button type="button" id="example">does retrieval-augmented generation outperform fine-tuning for factual accuracy</button></p>
+
+  <div id="log"></div>
+
+  <div id="report">
+    <h2>Summary</h2>
+    <p id="summary"></p>
+
+    <h2>Contradictions</h2>
+    <div id="contradictions"></div>
+
+    <h2>Literature matrix</h2>
+    <table>
+      <thead><tr><th>Paper</th><th>Method</th><th>Key finding</th></tr></thead>
+      <tbody id="matrix"></tbody>
+    </table>
+
+    <h2>Bibliography</h2>
+    <ol class="bib" id="bibliography"></ol>
+  </div>
+</div>
+
+<script>
+const form = document.getElementById('form');
+const input = document.getElementById('question');
+const submitBtn = document.getElementById('submit');
+const logEl = document.getElementById('log');
+const reportEl = document.getElementById('report');
+
+document.getElementById('example').addEventListener('click', () => {
+  input.value = document.getElementById('example').textContent;
+});
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const question = input.value.trim();
+  if (!question) return;
+
+  submitBtn.disabled = true;
+  logEl.style.display = 'block';
+  logEl.textContent = '';
+  reportEl.style.display = 'none';
+
+  const source = new EventSource('/research/stream?question=' + encodeURIComponent(question));
+
+  source.onmessage = (evt) => {
+    const data = JSON.parse(evt.data);
+    if (data.type === 'log') {
+      logEl.textContent += data.message + '\n';
+      logEl.scrollTop = logEl.scrollHeight;
+    } else if (data.type === 'done') {
+      source.close();
+      submitBtn.disabled = false;
+      if (data.error) {
+        logEl.textContent += 'Error: ' + data.error + '\n';
+        return;
+      }
+      renderReport(data.report);
+    }
+  };
+
+  source.onerror = () => {
+    source.close();
+    submitBtn.disabled = false;
+    logEl.textContent += 'Connection closed.\n';
+  };
+});
+
+function renderReport(report) {
+  document.getElementById('summary').textContent = report.summary;
+
+  const contradictionsEl = document.getElementById('contradictions');
+  contradictionsEl.innerHTML = '';
+  if (report.contradictions.length === 0) {
+    contradictionsEl.innerHTML = '<p class="sub">No genuine contradictions found in this batch of papers.</p>';
+  }
+  for (const c of report.contradictions) {
+    const div = document.createElement('div');
+    div.className = 'contradiction';
+    div.innerHTML =
+      '<div class="topic">' + escapeHtml(c.topic) + '</div>' +
+      '<p><strong>' + escapeHtml(c.paper_a_id) + ':</strong> ' + escapeHtml(c.paper_a_claim) + '</p>' +
+      '<p><strong>' + escapeHtml(c.paper_b_id) + ':</strong> ' + escapeHtml(c.paper_b_claim) + '</p>' +
+      '<p>' + escapeHtml(c.explanation) + '</p>';
+    contradictionsEl.appendChild(div);
+  }
+
+  const matrixEl = document.getElementById('matrix');
+  matrixEl.innerHTML = '';
+  for (const c of report.claims) {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>' + escapeHtml(c.title) + '</td>' +
+      '<td>' + escapeHtml(c.methodology) + '</td>' +
+      '<td>' + escapeHtml(c.key_finding) + '</td>';
+    matrixEl.appendChild(tr);
+  }
+
+  const bibEl = document.getElementById('bibliography');
+  bibEl.innerHTML = '';
+  for (const b of report.bibliography) {
+    const li = document.createElement('li');
+    const year = b.year ? ' (' + b.year + ')' : '';
+    li.innerHTML = '<a href="' + b.url + '" target="_blank" rel="noopener">' + escapeHtml(b.title) + '</a>' + year;
+    bibEl.appendChild(li);
+  }
+
+  reportEl.style.display = 'block';
+}
+
+function escapeHtml(s) {
+  const div = document.createElement('div');
+  div.textContent = s ?? '';
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
