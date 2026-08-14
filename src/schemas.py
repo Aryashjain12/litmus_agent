@@ -38,6 +38,7 @@ def make_claim_record(paper: dict, extracted: dict) -> dict:
         "title": paper["title"],
         "url": paper.get("url"),
         "year": paper.get("year"),
+        "citation_count": paper.get("citation_count"),
         **extracted,
     }
 

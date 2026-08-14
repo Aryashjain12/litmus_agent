@@ -16,6 +16,8 @@ Usage:
 
 from __future__ import annotations
 
+from groq import APIError, RateLimitError
+
 from .arxiv_search import search_arxiv
 from .semantic_scholar import search_semantic_scholar
 from .query_planner import plan_queries
@@ -25,7 +27,7 @@ from .synthesizer import build_bibliography, synthesize_summary
 
 MIN_USABLE_PAPERS = 5  # evidence-check threshold; tune after a test run
 MAX_REFINE_ATTEMPTS = 1  # bounded so a live demo can't loop forever
-MAX_PAPERS = 12  # keeps per-run LLM calls (and free-tier rate limits) in check
+MAX_PAPERS = 15  # keeps per-run LLM calls (and free-tier rate limits) in check
 
 
 def _log(message: str) -> dict:
@@ -37,7 +39,7 @@ def _search_all(queries: list[str]) -> list[dict]:
     for q in queries:
         for fetch in (search_arxiv, search_semantic_scholar):
             try:
-                for p in fetch(q, 6):
+                for p in fetch(q, 8):
                     key = p["title"].strip().lower()
                     if key and key not in seen_titles and p.get("abstract"):
                         seen_titles.add(key)
@@ -50,6 +52,23 @@ def _search_all(queries: list[str]) -> list[dict]:
 
 
 def run_pipeline(client, research_question: str):
+    """Public entry point -- wraps _run_pipeline so an API hiccup ends the
+    stream with a readable error event instead of a raw connection drop."""
+    try:
+        yield from _run_pipeline(client, research_question)
+    except RateLimitError:
+        yield {
+            "type": "done",
+            "report": None,
+            "error": "Hit the LLM provider's rate limit. Wait a minute and try again.",
+        }
+    except APIError as exc:
+        yield {"type": "done", "report": None, "error": f"LLM provider error: {exc}"}
+    except Exception:
+        yield {"type": "done", "report": None, "error": "Unexpected error -- check server logs."}
+
+
+def _run_pipeline(client, research_question: str):
     refine_hint = None
     papers: list[dict] = []
 
@@ -76,6 +95,11 @@ def run_pipeline(client, research_question: str):
     if not claims:
         yield {"type": "done", "report": None, "error": "No papers yielded usable claims."}
         return
+
+    # Most-cited first -- a cheap, honest proxy for relevance in the
+    # rendered matrix/bibliography (arXiv papers without a citation count
+    # sort after everything that has one).
+    claims.sort(key=lambda c: c.get("citation_count") or 0, reverse=True)
 
     yield _log(f"Comparing {len(claims)} papers' claims for contradictions...")
     contradictions = detect_contradictions(client, claims)

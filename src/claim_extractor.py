@@ -31,8 +31,11 @@ def extract_claims(client, paper: dict) -> dict | None:
     text = call_llm(client, EXTRACTOR_MODEL, _SYSTEM, content, max_tokens=500, json_object=True)
     try:
         extracted = json.loads(text)
-        if not all(field in extracted for field in CLAIM_SCHEMA["required"]):
-            return None  # smaller models occasionally drop a required field
+        # Smaller models occasionally drop a required field, or nest an
+        # object/list where a plain string was asked for -- either way,
+        # skip the paper rather than let a malformed record hit the UI.
+        if not all(isinstance(extracted.get(field), str) for field in CLAIM_SCHEMA["required"]):
+            return None
         return make_claim_record(paper, extracted)
     except json.JSONDecodeError:
         return None

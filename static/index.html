@@ -4,17 +4,23 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Literature review agent</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
 <style>
   :root {
     --ink: #1c1b18;
     --ink-soft: #57554d;
+    --ink-faint: #8a8778;
     --paper: #ffffff;
     --paper-dim: #f4f3ef;
     --line: #ddd9cf;
     --accent: #2b3a55;
+    --accent-soft: #eef1f6;
     --flag-bg: #fbf1de;
     --flag-line: #c98a2c;
     --flag-ink: #6b4c15;
+    --error-bg: #fdecec;
+    --error-line: #d9534f;
+    --error-ink: #8a2c28;
   }
   * { box-sizing: border-box; }
   body {
@@ -23,27 +29,46 @@
     color: var(--ink);
     font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   }
-  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 24px 96px; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 48px 20px 96px; }
+
+  header { margin-bottom: 32px; }
+  .eyebrow {
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    background: var(--accent-soft);
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 100px;
+    margin-bottom: 14px;
+  }
   h1 {
-    font-size: 28px;
+    font-size: 30px;
     font-weight: 400;
     letter-spacing: -0.01em;
-    margin: 0 0 6px;
+    margin: 0 0 8px;
   }
   .sub {
     font-family: -apple-system, "Segoe UI", sans-serif;
     color: var(--ink-soft);
-    font-size: 14px;
-    margin: 0 0 32px;
+    font-size: 14.5px;
+    line-height: 1.6;
+    margin: 0;
+    max-width: 56ch;
   }
-  form { display: flex; gap: 8px; margin-bottom: 8px; }
+
+  form { display: flex; gap: 8px; margin: 28px 0 10px; flex-wrap: wrap; }
   input[type=text] {
     flex: 1;
+    min-width: 220px;
     font-family: -apple-system, "Segoe UI", sans-serif;
     font-size: 15px;
-    padding: 12px 14px;
+    padding: 13px 15px;
     border: 1px solid var(--line);
-    border-radius: 6px;
+    border-radius: 8px;
     background: var(--paper);
     color: var(--ink);
   }
@@ -51,18 +76,63 @@
   button {
     font-family: -apple-system, "Segoe UI", sans-serif;
     font-size: 15px;
-    padding: 12px 20px;
+    padding: 13px 22px;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     background: var(--accent);
     color: #fff;
     cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.05s ease;
   }
+  button:hover:not(:disabled) { opacity: 0.88; }
+  button:active:not(:disabled) { transform: translateY(1px); }
   button:disabled { opacity: 0.5; cursor: default; }
-  .example { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 13px; color: var(--ink-soft); margin: 0 0 32px; }
-  .example button {
-    background: none; border: none; padding: 0; color: var(--accent);
-    text-decoration: underline; cursor: pointer; font-size: 13px;
+  button.secondary {
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+
+  .examples {
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    margin: 0 0 32px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    align-items: center;
+  }
+  .examples span.label { color: var(--ink-soft); }
+  .chip {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 100px;
+    padding: 5px 12px;
+    cursor: pointer;
+    color: var(--ink-soft);
+    font-size: 12.5px;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+  #status {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+  }
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1.1s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.85); }
+    50% { opacity: 1; transform: scale(1); }
   }
 
   #log {
@@ -73,13 +143,52 @@
     color: var(--ink-soft);
     background: var(--paper);
     border: 1px solid var(--line);
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 16px 18px;
-    margin-bottom: 32px;
+    margin-bottom: 28px;
     white-space: pre-wrap;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+
+  #errorBanner {
+    display: none;
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    font-size: 14px;
+    background: var(--error-bg);
+    border: 1px solid var(--error-line);
+    color: var(--error-ink);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 28px;
   }
 
   #report { display: none; }
+
+  .stats {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .stat {
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 16px;
+    flex: 1;
+    min-width: 140px;
+  }
+  .stat .n { font-size: 20px; color: var(--accent); font-weight: 600; line-height: 1.2; }
+  .stat .l { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-faint); }
+
+  .actions {
+    display: flex;
+    gap: 8px;
+    margin: 20px 0 4px;
+  }
+
   #report h2 {
     font-size: 15px;
     font-weight: 400;
@@ -93,38 +202,75 @@
   }
   #summary { font-size: 16px; line-height: 1.7; }
 
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 480px; }
   th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft); font-weight: 400; }
 
   .contradiction {
     background: var(--flag-bg);
     border: 1px solid var(--flag-line);
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 14px 16px;
     margin-bottom: 12px;
     color: var(--flag-ink);
   }
-  .contradiction .topic { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .contradiction .topic { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; font-weight: 600; }
+  .contradiction p { margin: 6px 0; line-height: 1.55; }
+  .empty-note { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 13.5px; color: var(--ink-faint); }
 
   ol.bib { font-size: 13.5px; line-height: 1.9; padding-left: 20px; }
   ol.bib a { color: var(--accent); }
+
+  footer {
+    margin-top: 56px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+
+  @media (max-width: 480px) {
+    .wrap { padding: 32px 16px 72px; }
+    h1 { font-size: 25px; }
+    form { flex-direction: column; }
+    button { width: 100%; }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Literature review agent</h1>
-  <p class="sub">Plans a search, reads the papers, and flags where they disagree.</p>
+  <header>
+    <span class="eyebrow">Agentic literature review</span>
+    <h1>Literature review agent</h1>
+    <p class="sub">Plans a search, reads the papers from arXiv and Semantic Scholar, and flags where they genuinely disagree — not just related work, real contradictions with cited evidence.</p>
+  </header>
 
   <form id="form">
-    <input type="text" id="question" placeholder="e.g. does chain-of-thought prompting improve reasoning accuracy in LLMs" required minlength="5">
+    <input type="text" id="question" placeholder="e.g. does chain-of-thought prompting improve reasoning accuracy in LLMs" required minlength="5" maxlength="300">
     <button type="submit" id="submit">Run</button>
   </form>
-  <p class="example">Try: <button type="button" id="example">does retrieval-augmented generation outperform fine-tuning for factual accuracy</button></p>
+  <div class="examples">
+    <span class="label">Try:</span>
+    <button type="button" class="chip" data-q="does retrieval-augmented generation outperform fine-tuning for factual accuracy">RAG vs. fine-tuning for factual accuracy</button>
+    <button type="button" class="chip" data-q="does chain-of-thought prompting improve reasoning accuracy in large language models">Chain-of-thought reasoning</button>
+  </div>
 
+  <div id="status"><span class="dot"></span><span id="statusText">Working...</span></div>
   <div id="log"></div>
+  <div id="errorBanner"></div>
 
   <div id="report">
+    <div class="stats">
+      <div class="stat"><div class="n" id="statPapers">0</div><div class="l">Papers analyzed</div></div>
+      <div class="stat"><div class="n" id="statContradictions">0</div><div class="l">Contradictions flagged</div></div>
+    </div>
+    <div class="actions">
+      <button type="button" class="secondary" id="downloadBtn">Download report (.md)</button>
+      <button type="button" class="secondary" id="resetBtn">New search</button>
+    </div>
+
     <h2>Summary</h2>
     <p id="summary"></p>
 
@@ -132,25 +278,59 @@
     <div id="contradictions"></div>
 
     <h2>Literature matrix</h2>
-    <table>
-      <thead><tr><th>Paper</th><th>Method</th><th>Key finding</th></tr></thead>
-      <tbody id="matrix"></tbody>
-    </table>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Paper</th><th>Method</th><th>Key finding</th></tr></thead>
+        <tbody id="matrix"></tbody>
+      </table>
+    </div>
 
     <h2>Bibliography</h2>
     <ol class="bib" id="bibliography"></ol>
   </div>
+
+  <footer>Built with Groq (Llama 3.3 70B / 3.1 8B) &middot; arXiv &middot; Semantic Scholar</footer>
 </div>
 
 <script>
 const form = document.getElementById('form');
 const input = document.getElementById('question');
 const submitBtn = document.getElementById('submit');
+const statusEl = document.getElementById('status');
+const statusText = document.getElementById('statusText');
 const logEl = document.getElementById('log');
+const errorBanner = document.getElementById('errorBanner');
 const reportEl = document.getElementById('report');
+let lastReport = null;
 
-document.getElementById('example').addEventListener('click', () => {
-  input.value = document.getElementById('example').textContent;
+document.querySelectorAll('.chip').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    input.value = btn.dataset.q;
+    input.focus();
+  });
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  reportEl.style.display = 'none';
+  logEl.style.display = 'none';
+  logEl.textContent = '';
+  errorBanner.style.display = 'none';
+  input.value = '';
+  input.focus();
+});
+
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  if (!lastReport) return;
+  const md = reportToMarkdown(lastReport);
+  const blob = new Blob([md], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'literature-review.md';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 });
 
 form.addEventListener('submit', (e) => {
@@ -159,8 +339,11 @@ form.addEventListener('submit', (e) => {
   if (!question) return;
 
   submitBtn.disabled = true;
+  statusEl.style.display = 'flex';
+  statusText.textContent = 'Working...';
   logEl.style.display = 'block';
   logEl.textContent = '';
+  errorBanner.style.display = 'none';
   reportEl.style.display = 'none';
 
   const source = new EventSource('/research/stream?question=' + encodeURIComponent(question));
@@ -170,11 +353,14 @@ form.addEventListener('submit', (e) => {
     if (data.type === 'log') {
       logEl.textContent += data.message + '\n';
       logEl.scrollTop = logEl.scrollHeight;
+      statusText.textContent = data.message;
     } else if (data.type === 'done') {
       source.close();
       submitBtn.disabled = false;
+      statusEl.style.display = 'none';
       if (data.error) {
-        logEl.textContent += 'Error: ' + data.error + '\n';
+        errorBanner.textContent = data.error;
+        errorBanner.style.display = 'block';
         return;
       }
       renderReport(data.report);
@@ -184,17 +370,24 @@ form.addEventListener('submit', (e) => {
   source.onerror = () => {
     source.close();
     submitBtn.disabled = false;
-    logEl.textContent += 'Connection closed.\n';
+    statusEl.style.display = 'none';
+    if (reportEl.style.display !== 'block') {
+      errorBanner.textContent = 'Connection to the server was lost. Please try again.';
+      errorBanner.style.display = 'block';
+    }
   };
 });
 
 function renderReport(report) {
+  lastReport = report;
   document.getElementById('summary').textContent = report.summary;
+  document.getElementById('statPapers').textContent = report.claims.length;
+  document.getElementById('statContradictions').textContent = report.contradictions.length;
 
   const contradictionsEl = document.getElementById('contradictions');
   contradictionsEl.innerHTML = '';
   if (report.contradictions.length === 0) {
-    contradictionsEl.innerHTML = '<p class="sub">No genuine contradictions found in this batch of papers.</p>';
+    contradictionsEl.innerHTML = '<p class="empty-note">No genuine contradictions found in this batch of papers.</p>';
   }
   for (const c of report.contradictions) {
     const div = document.createElement('div');
@@ -228,6 +421,32 @@ function renderReport(report) {
   }
 
   reportEl.style.display = 'block';
+  reportEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function reportToMarkdown(report) {
+  let md = '# Literature review: ' + report.research_question + '\n\n';
+  md += '## Summary\n\n' + report.summary + '\n\n';
+  md += '## Contradictions\n\n';
+  if (report.contradictions.length === 0) {
+    md += 'No genuine contradictions found in this batch of papers.\n\n';
+  } else {
+    for (const c of report.contradictions) {
+      md += '### ' + c.topic + '\n\n';
+      md += '- **' + c.paper_a_id + ':** ' + c.paper_a_claim + '\n';
+      md += '- **' + c.paper_b_id + ':** ' + c.paper_b_claim + '\n\n';
+      md += c.explanation + '\n\n';
+    }
+  }
+  md += '## Literature matrix\n\n| Paper | Method | Key finding |\n|---|---|---|\n';
+  for (const c of report.claims) {
+    md += '| ' + c.title + ' | ' + c.methodology + ' | ' + c.key_finding + ' |\n';
+  }
+  md += '\n## Bibliography\n\n';
+  for (const b of report.bibliography) {
+    md += '- [' + b.title + '](' + b.url + ')' + (b.year ? ' (' + b.year + ')' : '') + '\n';
+  }
+  return md;
 }
 
 function escapeHtml(s) {

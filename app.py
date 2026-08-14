@@ -23,12 +23,24 @@ from src.pipeline import run_pipeline
 
 load_dotenv()
 
+api_key = os.environ.get("GROQ_API_KEY")
+if not api_key:
+    raise RuntimeError(
+        "GROQ_API_KEY is not set. Copy .env.example to .env and add a free key "
+        "from https://console.groq.com/keys"
+    )
+
 app = FastAPI(title="Contradiction-aware literature review agent")
-client = Groq(api_key=os.environ["GROQ_API_KEY"])
+client = Groq(api_key=api_key)
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 
 @app.get("/research/stream")
-def research_stream(question: str = Query(..., min_length=5)):
+def research_stream(question: str = Query(..., min_length=5, max_length=300)):
     def event_source():
         for event in run_pipeline(client, question):
             yield f"data: {json.dumps(event)}\n\n"
@@ -36,5 +48,5 @@ def research_stream(question: str = Query(..., min_length=5)):
     return StreamingResponse(event_source(), media_type="text/event-stream")
 
 
-# Serve the demo frontend last so it doesn't shadow the API route above.
+# Serve the demo frontend last so it doesn't shadow the API routes above.
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
