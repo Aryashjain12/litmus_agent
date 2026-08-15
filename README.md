@@ -1,7 +1,12 @@
-# Litmus
+# 🧪 Litmus
 
 A contradiction-aware literature review agent. Built for **Ascendant Agents**
 (D'Code NSUT), Track 4: AI Academic Research Assistant.
+
+> Give it a research question. It reads real papers, tells you what the
+> field agrees on, and — the hard part — tells you exactly where it disagrees.
+
+**Live demo:** _add your deployed Render/Railway link here once deployed_
 
 ## Overview
 
@@ -113,6 +118,12 @@ docker run -p 8000:8000 -e GROQ_API_KEY=your_key litmus
 ```
 
 All three bind to `$PORT` and expose `/health` for the platform's health check.
+
+## Screenshots
+
+_Add screenshots of the agent's live trace and final report here before
+submission -- a shot of the "Extracting claims..." live log and a shot of
+the rendered report (summary + contradictions) tell the story best._
 
 ## Team
 
