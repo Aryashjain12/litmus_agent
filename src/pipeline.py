@@ -25,9 +25,13 @@ from .claim_extractor import extract_claims
 from .contradiction_detector import detect_contradictions
 from .synthesizer import build_bibliography, synthesize_summary
 
-MIN_USABLE_PAPERS = 5  # evidence-check threshold; tune after a test run
+MIN_USABLE_PAPERS = 6  # evidence-check threshold; tune after a test run
 MAX_REFINE_ATTEMPTS = 1  # bounded so a live demo can't loop forever
-MAX_PAPERS = 15  # keeps per-run LLM calls (and free-tier rate limits) in check
+MAX_PAPERS = 17  # more papers = a more thorough review, but each one costs an
+                 # LLM call against the free tier's tokens-per-minute budget --
+                 # measured ~2m15s at 20 papers, which is too long for a live
+                 # demo slot. 17 keeps it closer to ~90s while still being
+                 # noticeably richer than the original 15-paper cap.
 
 
 def _log(message: str) -> dict:
@@ -39,7 +43,7 @@ def _search_all(queries: list[str]) -> list[dict]:
     for q in queries:
         for fetch in (search_arxiv, search_semantic_scholar):
             try:
-                for p in fetch(q, 8):
+                for p in fetch(q, 10):
                     key = p["title"].strip().lower()
                     if key and key not in seen_titles and p.get("abstract"):
                         seen_titles.add(key)

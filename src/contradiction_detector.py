@@ -44,7 +44,7 @@ def detect_contradictions(client, claims: list[dict]) -> list[dict]:
         for c in claims
     )
 
-    text = call_llm(client, DETECTOR_MODEL, _SYSTEM, claims_summary, max_tokens=1500)
+    text = call_llm(client, DETECTOR_MODEL, _SYSTEM, claims_summary, max_tokens=2000)
     try:
         contradictions = json.loads(text)
         assert isinstance(contradictions, list)
