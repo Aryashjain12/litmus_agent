@@ -6,7 +6,8 @@ A contradiction-aware literature review agent. Built for **Ascendant Agents**
 > Give it a research question. It reads real papers, tells you what the
 > field agrees on, and — the hard part — tells you exactly where it disagrees.
 
-**Live demo:** _add your deployed Render/Railway link here once deployed_
+**Live demo:** [litmus-7dab.onrender.com](https://litmus-7dab.onrender.com/)
+_(hosted on Render's free tier — sleeps after 15 min idle, first request after that takes ~30-50s to wake up)_
 
 ## Overview
 
