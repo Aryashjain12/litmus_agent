@@ -307,7 +307,7 @@
     <h2>Literature matrix</h2>
     <div class="table-scroll">
       <table>
-        <thead><tr><th>Paper</th><th>Method</th><th>Key finding</th></tr></thead>
+        <thead><tr><th>Paper</th><th>Citation</th><th>Method</th><th>Key finding</th></tr></thead>
         <tbody id="matrix"></tbody>
       </table>
     </div>
@@ -433,6 +433,7 @@ function renderReport(report) {
     const tr = document.createElement('tr');
     tr.innerHTML =
       '<td>' + escapeHtml(c.title) + '</td>' +
+      '<td>' + escapeHtml(c.citation) + '</td>' +
       '<td>' + escapeHtml(c.methodology) + '</td>' +
       '<td>' + escapeHtml(c.key_finding) + '</td>';
     matrixEl.appendChild(tr);
@@ -443,7 +444,8 @@ function renderReport(report) {
   for (const b of report.bibliography) {
     const li = document.createElement('li');
     const year = b.year ? ' (' + b.year + ')' : '';
-    li.innerHTML = '<a href="' + b.url + '" target="_blank" rel="noopener">' + escapeHtml(b.title) + '</a>' + year;
+    const citation = b.citation ? ' — <em>cite as: ' + escapeHtml(b.citation) + '</em>' : '';
+    li.innerHTML = '<a href="' + b.url + '" target="_blank" rel="noopener">' + escapeHtml(b.title) + '</a>' + year + citation;
     bibEl.appendChild(li);
   }
 
@@ -465,13 +467,13 @@ function reportToMarkdown(report) {
       md += c.explanation + '\n\n';
     }
   }
-  md += '## Literature matrix\n\n| Paper | Method | Key finding |\n|---|---|---|\n';
+  md += '## Literature matrix\n\n| Paper | Citation | Method | Key finding |\n|---|---|---|---|\n';
   for (const c of report.claims) {
-    md += '| ' + c.title + ' | ' + c.methodology + ' | ' + c.key_finding + ' |\n';
+    md += '| ' + c.title + ' | ' + c.citation + ' | ' + c.methodology + ' | ' + c.key_finding + ' |\n';
   }
   md += '\n## Bibliography\n\n';
   for (const b of report.bibliography) {
-    md += '- [' + b.title + '](' + b.url + ')' + (b.year ? ' (' + b.year + ')' : '') + '\n';
+    md += '- [' + b.title + '](' + b.url + ')' + (b.year ? ' (' + b.year + ')' : '') + (b.citation ? ' -- cite as: ' + b.citation : '') + '\n';
   }
   return md;
 }

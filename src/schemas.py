@@ -30,6 +30,16 @@ CLAIM_SCHEMA = {
     "required": ["methodology", "dataset_or_sample", "key_finding", "limitations"],
 }
 
+def _format_citation(paper: dict) -> str:
+    """'Lastname et al., Year' -- a real citable reference, not just a link."""
+    authors = paper.get("authors") or []
+    year = paper.get("year") or "n.d."
+    if not authors or not authors[0]:
+        return f"Unknown Author, {year}"
+    last_name = authors[0].strip().split()[-1]
+    return f"{last_name}, {year}" if len(authors) == 1 else f"{last_name} et al., {year}"
+
+
 # One extracted claim, with paper metadata attached so downstream stages
 # don't need to re-join against the paper list.
 def make_claim_record(paper: dict, extracted: dict) -> dict:
@@ -38,6 +48,7 @@ def make_claim_record(paper: dict, extracted: dict) -> dict:
         "title": paper["title"],
         "url": paper.get("url"),
         "year": paper.get("year"),
+        "citation": _format_citation(paper),
         "citation_count": paper.get("citation_count"),
         **extracted,
     }

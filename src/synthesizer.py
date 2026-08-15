@@ -46,6 +46,7 @@ def build_bibliography(claims: list[dict]) -> list[dict]:
             "title": c["title"],
             "year": c.get("year"),
             "url": c.get("url"),
+            "citation": c.get("citation"),
         }
         for c in claims
     ]
