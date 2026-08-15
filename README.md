@@ -1,6 +1,7 @@
-# Contradiction-aware literature review agent
+# Litmus
 
-Built for **Ascendant Agents** (D'Code NSUT), Track 4: AI Academic Research Assistant.
+A contradiction-aware literature review agent. Built for **Ascendant Agents**
+(D'Code NSUT), Track 4: AI Academic Research Assistant.
 
 ## Overview
 
@@ -107,8 +108,8 @@ frontend, so there's nothing to deploy separately.
 
 **Any Docker host** (Fly.io, a VPS, etc.):
 ```bash
-docker build -t literature-review-agent .
-docker run -p 8000:8000 -e GROQ_API_KEY=your_key literature-review-agent
+docker build -t litmus .
+docker run -p 8000:8000 -e GROQ_API_KEY=your_key litmus
 ```
 
 All three bind to `$PORT` and expose `/health` for the platform's health check.

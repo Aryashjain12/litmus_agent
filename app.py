@@ -30,7 +30,7 @@ if not api_key:
         "from https://console.groq.com/keys"
     )
 
-app = FastAPI(title="Contradiction-aware literature review agent")
+app = FastAPI(title="Litmus -- contradiction-aware literature review agent")
 client = Groq(api_key=api_key)
 
 

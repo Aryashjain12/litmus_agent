@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: literature-review-agent
+    name: litmus
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
