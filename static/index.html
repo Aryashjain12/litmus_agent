@@ -239,9 +239,45 @@
     color: var(--flag-ink);
     box-shadow: 0 1px 3px rgba(107, 76, 21, 0.08);
   }
-  .contradiction .topic { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; font-weight: 600; }
+  .contradiction .topic-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .contradiction .topic { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
   .contradiction p { margin: 6px 0; line-height: 1.55; }
   .empty-note { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 13.5px; color: var(--ink-faint); }
+
+  .severity {
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 3px 9px;
+    border-radius: 100px;
+    flex-shrink: 0;
+  }
+  .severity.strong { background: var(--flag-line); color: #fff; }
+  .severity.moderate { background: transparent; color: var(--flag-ink); border: 1px solid var(--flag-line); }
+
+  #qa {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+    box-shadow: 0 1px 3px rgba(28, 27, 24, 0.06);
+  }
+  #qa .hint { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 12.5px; color: var(--ink-faint); margin: 0 0 12px; }
+  #qaForm { display: flex; gap: 8px; margin: 0; flex-wrap: wrap; }
+  #qaError {
+    display: none;
+    margin-top: 12px;
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    font-size: 13px;
+    color: var(--error-ink);
+  }
+  .qa-entry { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .qa-entry:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .qa-q { font-family: -apple-system, "Segoe UI", sans-serif; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); margin: 0 0 6px; }
+  .qa-a { font-size: 14.5px; line-height: 1.6; color: var(--ink); margin: 0; background: var(--accent-soft); padding: 10px 12px; border-radius: 6px; }
+  .qa-a.pending { color: var(--ink-faint); font-style: italic; background: transparent; padding: 0; }
 
   ol.bib { font-size: 13.5px; line-height: 1.9; padding-left: 20px; }
   ol.bib a { color: var(--accent); }
@@ -314,9 +350,20 @@
 
     <h2>Bibliography</h2>
     <ol class="bib" id="bibliography"></ol>
+
+    <h2>Ask a follow-up</h2>
+    <div id="qa">
+      <p class="hint">Answered strictly from the papers Litmus just read -- no new search, no outside knowledge.</p>
+      <div id="qaHistory"></div>
+      <form id="qaForm">
+        <input type="text" id="qaQuestion" placeholder="e.g. which paper had the largest sample size?" required minlength="5" maxlength="300">
+        <button type="submit" id="qaSubmit">Ask</button>
+      </form>
+      <div id="qaError"></div>
+    </div>
   </div>
 
-  <footer>Built with Groq (Llama 3.3 70B / 3.1 8B) &middot; arXiv &middot; Semantic Scholar</footer>
+  <footer>Built with Groq (GPT-OSS 120B / 20B) &middot; arXiv &middot; Semantic Scholar</footer>
 </div>
 
 <script>
@@ -342,8 +389,56 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   logEl.style.display = 'none';
   logEl.textContent = '';
   errorBanner.style.display = 'none';
+  document.getElementById('qaHistory').innerHTML = '';
+  document.getElementById('qaError').style.display = 'none';
   input.value = '';
   input.focus();
+});
+
+document.getElementById('qaForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const qInput = document.getElementById('qaQuestion');
+  const qaSubmit = document.getElementById('qaSubmit');
+  const qaHistory = document.getElementById('qaHistory');
+  const qaError = document.getElementById('qaError');
+  const question = qInput.value.trim();
+  if (!question || !lastReport) return;
+
+  qaError.style.display = 'none';
+  qaSubmit.disabled = true;
+  qInput.value = '';
+
+  const entry = document.createElement('div');
+  entry.className = 'qa-entry';
+  entry.innerHTML =
+    '<p class="qa-q">' + escapeHtml(question) + '</p>' +
+    '<p class="qa-a pending">Thinking...</p>';
+  qaHistory.appendChild(entry);
+  entry.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  try {
+    const resp = await fetch('/research/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report: lastReport, question }),
+    });
+    const data = await resp.json();
+    const answerEl = entry.querySelector('.qa-a');
+    if (data.error) {
+      qaError.textContent = data.error;
+      qaError.style.display = 'block';
+      entry.remove();
+    } else {
+      answerEl.textContent = data.answer;
+      answerEl.classList.remove('pending');
+    }
+  } catch (err) {
+    qaError.textContent = 'Connection error -- please try again.';
+    qaError.style.display = 'block';
+    entry.remove();
+  } finally {
+    qaSubmit.disabled = false;
+  }
 });
 
 document.getElementById('downloadBtn').addEventListener('click', () => {
@@ -407,6 +502,8 @@ form.addEventListener('submit', (e) => {
 
 function renderReport(report) {
   lastReport = report;
+  document.getElementById('qaHistory').innerHTML = '';
+  document.getElementById('qaError').style.display = 'none';
   document.getElementById('summary').textContent = report.summary;
   document.getElementById('statPapers').textContent = report.claims.length;
   document.getElementById('statContradictions').textContent = report.contradictions.length;
@@ -419,8 +516,10 @@ function renderReport(report) {
   for (const c of report.contradictions) {
     const div = document.createElement('div');
     div.className = 'contradiction';
+    const severity = c.severity === 'strong' ? 'strong' : 'moderate';
     div.innerHTML =
-      '<div class="topic">' + escapeHtml(c.topic) + '</div>' +
+      '<div class="topic-row"><div class="topic">' + escapeHtml(c.topic) + '</div>' +
+      '<span class="severity ' + severity + '">' + severity + '</span></div>' +
       '<p><strong>' + escapeHtml(c.paper_a_id) + ':</strong> ' + escapeHtml(c.paper_a_claim) + '</p>' +
       '<p><strong>' + escapeHtml(c.paper_b_id) + ':</strong> ' + escapeHtml(c.paper_b_claim) + '</p>' +
       '<p>' + escapeHtml(c.explanation) + '</p>';
@@ -461,7 +560,7 @@ function reportToMarkdown(report) {
     md += 'No genuine contradictions found in this batch of papers.\n\n';
   } else {
     for (const c of report.contradictions) {
-      md += '### ' + c.topic + '\n\n';
+      md += '### ' + c.topic + ' [' + (c.severity || 'moderate') + ']\n\n';
       md += '- **' + c.paper_a_id + ':** ' + c.paper_a_claim + '\n';
       md += '- **' + c.paper_b_id + ':** ' + c.paper_b_claim + '\n\n';
       md += c.explanation + '\n\n';

@@ -14,7 +14,7 @@ import json
 from .llm_client import call_llm
 from .schemas import CONTRADICTION_SCHEMA
 
-DETECTOR_MODEL = "llama-3.3-70b-versatile"
+DETECTOR_MODEL = "openai/gpt-oss-120b"
 
 _SYSTEM = f"""You are comparing findings extracted from multiple research papers
 to find genuine contradictions -- cases where two papers make claims that
@@ -25,12 +25,20 @@ Be conservative: only flag a pair if the disagreement is real and specific.
 found X improves outcomes, paper B found X has no effect on the same outcome
 under comparable conditions" IS a contradiction.
 
+Rate each one's severity: 'strong' only when the two claims directly negate
+each other under comparable conditions (same task, metric, and setting) --
+'moderate' when they still conflict in overall direction but the setup
+differs enough that context could partly explain it. Do not default every
+flag to 'strong' -- most real disagreements in a literature are moderate.
+
 Respond with ONLY a JSON array of objects matching this schema (empty array
 if you find no genuine contradictions -- do not force one):
 
 {json.dumps(CONTRADICTION_SCHEMA, indent=2)}
 
 No prose, no markdown fences."""
+
+_REQUIRED_FIELDS = CONTRADICTION_SCHEMA["required"]
 
 
 def detect_contradictions(client, claims: list[dict]) -> list[dict]:
@@ -48,6 +56,14 @@ def detect_contradictions(client, claims: list[dict]) -> list[dict]:
     try:
         contradictions = json.loads(text)
         assert isinstance(contradictions, list)
-        return contradictions
     except (json.JSONDecodeError, AssertionError):
         return []
+
+    cleaned = []
+    for c in contradictions:
+        if not isinstance(c, dict) or not all(field in c for field in _REQUIRED_FIELDS):
+            continue
+        if c.get("severity") not in ("strong", "moderate"):
+            c["severity"] = "moderate"  # model occasionally skips the enum constraint
+        cleaned.append(c)
+    return cleaned

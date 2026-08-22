@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from .llm_client import call_llm
 
-SYNTHESIZER_MODEL = "llama-3.3-70b-versatile"
+SYNTHESIZER_MODEL = "openai/gpt-oss-120b"
 
 _SYSTEM = """You are writing the closing summary of a literature review agent's
 report. Given the research question, the extracted claims, and any flagged
@@ -23,7 +23,7 @@ def synthesize_summary(client, research_question: str, claims: list[dict], contr
     claims_text = "\n".join(f"- [{c['paper_id']}] {c['key_finding']}" for c in claims)
     contradictions_text = (
         "\n".join(
-            f"- {c['topic']}: {c['paper_a_id']} vs {c['paper_b_id']} -- {c['explanation']}"
+            f"- [{c.get('severity', 'moderate')}] {c['topic']}: {c['paper_a_id']} vs {c['paper_b_id']} -- {c['explanation']}"
             for c in contradictions
         )
         or "None found."

@@ -12,7 +12,7 @@ import json
 
 from .llm_client import call_llm
 
-PLANNER_MODEL = "llama-3.3-70b-versatile"
+PLANNER_MODEL = "openai/gpt-oss-120b"
 
 _SYSTEM = """You are the planning stage of a literature-review research agent.
 Given a research question, produce 2-4 short search queries (3-8 words each)
@@ -33,7 +33,7 @@ def plan_queries(client, research_question: str, refine_hint: str | None = None)
     if refine_hint:
         user_content += f"\n\nPrevious search was insufficient because: {refine_hint}\nProduce different or broader queries this time."
 
-    text = call_llm(client, PLANNER_MODEL, _SYSTEM, user_content, max_tokens=300)
+    text = call_llm(client, PLANNER_MODEL, _SYSTEM, user_content, max_tokens=450)
     try:
         queries = json.loads(text)
         assert isinstance(queries, list) and all(isinstance(q, str) for q in queries)

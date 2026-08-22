@@ -59,11 +59,20 @@ CONTRADICTION_SCHEMA = {
     "type": "object",
     "properties": {
         "topic": {"type": "string", "description": "Short label for what the papers disagree about."},
+        "severity": {
+            "type": "string",
+            "enum": ["strong", "moderate"],
+            "description": (
+                "'strong' if the two claims directly negate each other under comparable "
+                "conditions (same task/metric/setting). 'moderate' if they conflict in "
+                "overall direction but differ somewhat in scope, domain, or setup."
+            ),
+        },
         "paper_a_id": {"type": "string"},
         "paper_a_claim": {"type": "string", "description": "The specific claim from paper A, in your own words."},
         "paper_b_id": {"type": "string"},
         "paper_b_claim": {"type": "string", "description": "The specific claim from paper B, in your own words."},
         "explanation": {"type": "string", "description": "Why these two claims genuinely conflict, not just differ in framing."},
     },
-    "required": ["topic", "paper_a_id", "paper_a_claim", "paper_b_id", "paper_b_claim", "explanation"],
+    "required": ["topic", "severity", "paper_a_id", "paper_a_claim", "paper_b_id", "paper_b_claim", "explanation"],
 }

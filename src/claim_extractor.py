@@ -12,7 +12,7 @@ import json
 from .llm_client import call_llm
 from .schemas import CLAIM_SCHEMA, make_claim_record
 
-EXTRACTOR_MODEL = "llama-3.1-8b-instant"
+EXTRACTOR_MODEL = "openai/gpt-oss-20b"
 
 _SYSTEM = f"""Extract structured information from this paper's title and abstract.
 Respond with ONLY a JSON object matching this schema, no prose, no markdown fences.

@@ -17,9 +17,12 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Query
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from groq import APIError, RateLimitError
 from groq import Groq
+from pydantic import BaseModel
 
 from src.pipeline import run_pipeline
+from src.qa import answer_followup
 
 load_dotenv()
 
@@ -46,6 +49,25 @@ def research_stream(question: str = Query(..., min_length=5, max_length=300)):
             yield f"data: {json.dumps(event)}\n\n"
 
     return StreamingResponse(event_source(), media_type="text/event-stream")
+
+
+class FollowupRequest(BaseModel):
+    report: dict
+    question: str
+
+
+@app.post("/research/ask")
+def research_ask(body: FollowupRequest):
+    question = body.question.strip()
+    if not (5 <= len(question) <= 300):
+        return {"answer": None, "error": "Question must be 5-300 characters."}
+    try:
+        answer = answer_followup(client, body.report, question)
+        return {"answer": answer, "error": None}
+    except RateLimitError:
+        return {"answer": None, "error": "Hit the LLM provider's rate limit. Wait a minute and try again."}
+    except APIError as exc:
+        return {"answer": None, "error": f"LLM provider error: {exc}"}
 
 
 # Serve the demo frontend last so it doesn't shadow the API routes above.

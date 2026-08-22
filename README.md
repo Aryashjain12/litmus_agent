@@ -27,7 +27,7 @@ run one fixed pipeline and report whatever it got.
 
 ## Tech stack
 
-- **Groq** (Llama 3.3 70B / Llama 3.1 8B) -- query planning, claim extraction, contradiction detection, synthesis
+- **Groq** (GPT-OSS 120B / 20B) -- query planning, claim extraction, contradiction detection, synthesis, follow-up Q&A
 - **arXiv API** -- free, no auth, primary paper source
 - **Semantic Scholar API** -- free, secondary source with citation counts
 - **FastAPI** -- backend, streams agent progress over Server-Sent Events
@@ -47,10 +47,24 @@ steps stream in live before the report renders.
 
 ## Features
 
+**Two core capabilities:**
+
+1. **Cross-paper contradiction detection** -- not related-paper matching, genuine
+   conflict detection. Every flagged contradiction is rated for severity
+   (`strong`: claims directly negate each other under comparable conditions,
+   vs `moderate`: they conflict in direction but the setup differs enough
+   that context could partly explain it) so a reader can tell a hard conflict
+   from a nuanced one at a glance.
+2. **Follow-up Q&A on the completed review** -- ask a question grounded
+   strictly in the claims Litmus already extracted ("which paper had the
+   largest sample size?"), with no re-search and no outside-knowledge
+   answers. If the analyzed papers don't say, it says so instead of guessing.
+
+**Supporting the two above:**
+
 - Multi-query search planning (not a single forwarded search string)
 - Dual-source retrieval (arXiv + Semantic Scholar) with deduplication
-- Structured claim extraction per paper (methodology, dataset, finding, limitations)
-- Cross-paper contradiction detection with cited evidence from both sides
+- Structured claim extraction per paper (methodology, dataset, finding, limitations, citation)
 - Evidence-sufficiency check with a bounded re-search loop
 - Citation-aware ordering -- most-cited papers surface first in the matrix/bibliography
 - Synthesized summary + literature matrix + bibliography
@@ -59,6 +73,19 @@ steps stream in live before the report renders.
 - Graceful failure -- rate limits, provider errors, and thin search results all
   surface as a readable message in the UI instead of a dead connection
 - `/health` endpoint for deployment platform health checks
+
+## Known limitations (by design, not oversight)
+
+- **Abstracts only, not full PDFs.** arXiv and Semantic Scholar's APIs expose
+  abstracts without scraping paywalled full text -- a deliberate scope
+  trade-off for a hackathon timeline. Going to full-text is the natural next
+  step (see Roadmap).
+- **Deduplication is title-based.** A preprint and its camera-ready version
+  with a slightly reworded title could show up as two entries. A stronger
+  version would dedupe by arXiv ID / DOI overlap across sources.
+- **Extraction runs sequentially, one LLM call per paper.** At 20 papers this
+  pushed past 2 minutes end-to-end, which is why the cap is 17. Parallelizing
+  those calls (async) is the obvious next win for both speed and paper count.
 
 ## Technical workflow
 
@@ -74,10 +101,13 @@ steps stream in live before the report renders.
    usable claims, the agent re-plans and searches again (bounded to one
    retry).
 5. **Detect contradictions** -- one call receives every extracted claim
-   together and flags pairs that genuinely conflict, with the specific
-   claims and an explanation for each.
+   together and flags pairs that genuinely conflict, each rated `strong` or
+   `moderate`, with the specific claims and an explanation for each.
 6. **Synthesize** -- a closing summary paragraph plus a literature matrix
    and bibliography built from the paper metadata already on hand.
+7. **Ask follow-ups** -- once the report is done, the same extracted claims
+   answer follow-up questions directly (`src/qa.py`) -- no re-search, and it
+   says so explicitly when an answer isn't in the analyzed papers.
 
 ## Project structure
 
@@ -89,8 +119,9 @@ src/
   llm_client.py                Shared Groq call helper (retry/backoff, JSON mode)
   query_planner.py            Stage 1: search query planning
   claim_extractor.py          Stage 2: per-paper structured extraction
-  contradiction_detector.py   Stage 3: cross-paper contradiction detection
+  contradiction_detector.py   Stage 3: cross-paper contradiction detection, severity-rated
   synthesizer.py              Stage 4: summary + bibliography
+  qa.py                       Follow-up Q&A grounded in the completed report
   pipeline.py                 Orchestrates all stages, yields progress events
   schemas.py                  Shared JSON schemas for structured output
 static/index.html             Frontend (no build step)
@@ -122,10 +153,15 @@ All three bind to `$PORT` and expose `/health` for the platform's health check.
 
 ## Screenshots
 
-_Add screenshots of the agent's live trace and final report here before
-submission -- a shot of the "Extracting claims..." live log and a shot of
-the rendered report (summary + contradictions) tell the story best._
+See the live demo above for the real thing -- the live agent trace (search
+planning, per-paper extraction streaming in) and the final report (severity-
+rated contradictions, literature matrix, follow-up Q&A) are best seen running
+rather than as static images. Static screenshots are included in the
+submission PDF.
 
 ## Team
 
-_Add your team members here._
+**TechTitan**
+- Aryash Jain
+- Dhruv Choudhary
+- Ashutosh Tomar

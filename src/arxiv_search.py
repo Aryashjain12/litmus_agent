@@ -18,6 +18,11 @@ _NS = {
     "arxiv": "http://arxiv.org/schemas/atom",
 }
 
+_STOPWORDS = {
+    "a", "an", "the", "of", "for", "vs", "vs.", "and", "or", "in", "on", "to",
+    "with", "is", "does", "do", "by", "at", "as", "vs", "between", "versus",
+}
+
 
 def search_arxiv(query: str, max_results: int = 8) -> list[dict]:
     """Search arXiv and return a list of paper dicts.
@@ -26,8 +31,13 @@ def search_arxiv(query: str, max_results: int = 8) -> list[dict]:
     """
     # AND each word together instead of a loose multi-term match -- arXiv's
     # default parsing lets a single common word (e.g. "chain") pull in
-    # completely unrelated papers that happen to contain it once.
-    terms = " AND ".join(f"all:{word}" for word in query.split())
+    # completely unrelated papers that happen to contain it once. But as
+    # queries get longer (the planner sometimes writes 6+ word queries),
+    # ANDing every word makes the match nearly impossible -- drop filler
+    # words and cap the term count so it stays selective, not empty.
+    words = [w for w in query.split() if w.lower() not in _STOPWORDS] or query.split()
+    words = words[:5]
+    terms = " AND ".join(f"all:{word}" for word in words)
     params = {
         "search_query": terms,
         "start": 0,
