@@ -28,17 +28,27 @@ def _normalize_text(text: str) -> str:
     return text.translate(_TYPOGRAPHIC_TO_ASCII)
 
 
-def call_llm(client, model: str, system: str, user: str, max_tokens: int = 500, json_object: bool = False) -> str:
+def call_llm(
+    client,
+    model: str,
+    system: str,
+    user: str,
+    max_tokens: int = 500,
+    json_object: bool = False,
+    reasoning_effort: str = "low",
+) -> str:
     # Groq's free tier has a low tokens-per-minute cap, and this pipeline
     # fires many sequential calls (one per paper) -- back off and retry
     # rather than letting a single rate-limit response kill a live demo.
-    kwargs = {
-        # The current Groq lineup (gpt-oss-20b/120b) are reasoning models that
-        # spend part of max_tokens on a hidden reasoning trace before the
-        # visible answer. "low" keeps that overhead small and predictable --
-        # without it, tight token budgets can come back with empty content.
-        "reasoning_effort": "low",
-    }
+    #
+    # reasoning_effort controls how much hidden "thinking" the model does
+    # before answering. "low" is right for cheap, repetitive calls (one per
+    # paper extraction) -- but the contradiction-detection stage genuinely
+    # needs to cross-check numeric claims across every paper at once, and
+    # "low" effort there was causing it to under-analyze and default to
+    # "no contradictions" rather than doing that comparison work. Callers
+    # that need real cross-document reasoning should pass "medium"/"high".
+    kwargs = {"reasoning_effort": reasoning_effort}
     if json_object:
         # Forces syntactically valid JSON -- only usable when the expected
         # output is a JSON *object*, not an array (the API rejects the latter).

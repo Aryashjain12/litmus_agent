@@ -48,11 +48,22 @@ def detect_contradictions(client, claims: list[dict]) -> list[dict]:
     claims_summary = "\n\n".join(
         f"[{c['paper_id']}] {c['title']}\n"
         f"  Methodology: {c['methodology']}\n"
+        f"  Dataset/sample: {c.get('dataset_or_sample', 'Not specified')}\n"
         f"  Key finding: {c['key_finding']}"
         for c in claims
     )
 
-    text = call_llm(client, DETECTOR_MODEL, _SYSTEM, claims_summary, max_tokens=2000)
+    # This is the one stage that genuinely needs real reasoning -- cross-
+    # checking numeric claims across every paper, not just pattern matching.
+    # Measured empirically: "low" under-analyzes and defaults to empty;
+    # "high" either burns the whole token budget on hidden reasoning before
+    # writing any answer (empty output, silently parsed as "no
+    # contradictions") or reasons its way to over-caution even with room to
+    # spare. "medium" is the one that actually finds real contradictions.
+    text = call_llm(
+        client, DETECTOR_MODEL, _SYSTEM, claims_summary,
+        max_tokens=4000, reasoning_effort="medium",
+    )
     try:
         contradictions = json.loads(text)
         assert isinstance(contradictions, list)
